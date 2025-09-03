@@ -1,343 +1,241 @@
-//#include "PS1Reverb.h"
-//#include <algorithm>
-//#include <cmath>
-//#include <stdexcept>
-//
-//// Helper: convert SPU addr/8 register to WORD offset (16-bit) inside work area
-//static inline uint32_t reg_to_words(uint16_t reg) {
-//    // SPU stores addresses divided by 8. Each word = 2 bytes. (8/2) = 4
-//    return (uint32_t)reg * 4u;
-//}
-//
-//// Helper clamp (portable; avoids std::clamp availability issues)
-//template<typename T>
-//static inline T clamp_val(T v, T lo, T hi) {
-//    if (v < lo) return lo;
-//    if (v > hi) return hi;
-//    return v;
-//}
-//
-//// ===================== Canonical Presets (PSXSPX) =====================
-//// Values match the PSXSPX tables: volumes are s15, addresses are addr/8,
-//// size is the "Reverb Work Area Size" (bytes). See PSXSPX 7.10. :contentReference[oaicite:3]{index=3}
-//std::unordered_map<std::string, PS1ReverbRegs> PS1_CANONICAL_PRESETS = {
-//    // Room
-//    { "Room", PS1ReverbRegs(
-//        0x5800, 0x5300, 0x0000,
-//        0x04D6, 0x0333, 0x0334,
-//        0x03F0, 0x0227, 0x0374, 0x01EF,
-//        0x01B5,
-//        0x03F0, 0x0227,
-//        0x03F0, 0x0227,
-//        0x03F0, 0x0000,  // mLCOMB1, mRCOMB1
-//        0x0000, 0x0000,  // mLCOMB2, mRCOMB2
-//        0x0374, 0x0000,  // mLCOMB3, mRCOMB3
-//        0x01EF, 0x0000,  // mLCOMB4, mRCOMB4
-//        0x0334, 0x01B5,  // mLDIFF, mRDIFF
-//        0x0000, 0x0000,  // mLAPF1, mRAPF1 (not used in this preset table row)
-//        0x0000, 0x0000,  // mLAPF2, mRAPF2
-//        0x8000, 0x8000,
-//        0x26C0
-//    )}//,
-//        //// Studio Small
-//        //{ "Studio Small", PS1ReverbRegs(
-//        //    0x5280, 0x4EC0, 0x0000,
-//        //    0x03E4, 0x031B, 0x031C,
-//        //    0x03A4, 0x02AF, 0x0372, 0x0266,
-//        //    0x025D,
-//        //    0x03A4, 0x02AF,
-//        //    0x03A4, 0x02AF,
-//        //    0x031C, 0x025C,
-//        //    0x0372, 0x022F,
-//        //    0x0266, 0x0135,
-//        //    0x025D, 0x018E,
-//        //    0x031C, 0x025D,
-//        //    0x01D2, 0x00B7,
-//        //    0x8000, 0x8000,
-//        //    0x2620
-//        //)},
-//        //// Studio Medium
-//        //{ "Studio Medium", PS1ReverbRegs(
-//        //    0x5280, 0x4EC0, 0x0000,
-//        //    0x0904, 0x076B, 0x076C,
-//        //    0x0824, 0x065F, 0x07A2, 0x0616,
-//        //    0x05ED,
-//        //    0x0824, 0x065F,
-//        //    0x0824, 0x065F,
-//        //    0x076C, 0x05EC,
-//        //    0x07A2, 0x050F,
-//        //    0x0616, 0x0305,
-//        //    0x05ED, 0x042E,
-//        //    0x076C, 0x05ED,
-//        //    0x0462, 0x02B7,
-//        //    0x8000, 0x8000,
-//        //    0x4F50
-//        //)},
-//        //// Studio Large
-//        //{ "Studio Large", PS1ReverbRegs(
-//        //    0x5680, 0x52C0, 0x0000,
-//        //    0x0DFB, 0x0B58, 0x0B59,
-//        //    0x0D09, 0x0A3C, 0x0BD9, 0x0973,
-//        //    0x08DA,
-//        //    0x0D09, 0x0A3C,
-//        //    0x0D09, 0x0A3C,
-//        //    0x0B59, 0x08D9,
-//        //    0x0BD9, 0x07EC,
-//        //    0x0973, 0x04B0,
-//        //    0x08DA, 0x05E9,
-//        //    0x0B59, 0x08DA,
-//        //    0x06EF, 0x03D2,
-//        //    0x8000, 0x8000,
-//        //    0x64F0
-//        //)},
-//        //// Hall
-//        //{ "Hall", PS1ReverbRegs(
-//        //    0x6000, 0x5C00, 0x0000,
-//        //    0x15BA, 0x11BB, 0x11C0,
-//        //    0x14C2, 0x10BD, 0x11BC, 0x0DC1,
-//        //    0x0DC3,
-//        //    0x14C2, 0x10BD,
-//        //    0x14C2, 0x10BD,
-//        //    0x11C0, 0x0DC0,
-//        //    0x11BC, 0x0BC4,
-//        //    0x0DC1, 0x07C1,
-//        //    0x0DC3, 0x09C1,
-//        //    0x11C0, 0x0DC3,
-//        //    0x0A00, 0x06CD,
-//        //    0x8000, 0x8000,
-//        //    0x7400
-//        //)},
-//        //// Half Echo
-//        //{ "Half Echo", PS1ReverbRegs(
-//        //    0x5F80, 0x54C0, 0x0000,
-//        //    0x0371, 0x02AF, 0x0358,
-//        //    0x02E5, 0x01DF, 0x02B0, 0x01D7,
-//        //    0x026A,
-//        //    0x02E5, 0x01DF,
-//        //    0x02E5, 0x01DF,
-//        //    0x0358, 0x01D6,
-//        //    0x02B0, 0x012D,
-//        //    0x01D7, 0x00B1,
-//        //    0x026A, 0x011E,
-//        //    0x0358, 0x026A,
-//        //    0x011F, 0x0059,
-//        //    0x8000, 0x8000,
-//        //    0x2180
-//        //)},
-//        //// Space Echo
-//        //{ "Space Echo", PS1ReverbRegs(
-//        //    0x6000, 0x5400, 0x0000,
-//        //    0x1ED6, 0x1A31, 0x1A32,
-//        //    0x1D14, 0x183B, 0x1BC2, 0x16B2,
-//        //    0x15EF,
-//        //    0x1D14, 0x183B,
-//        //    0x1D14, 0x183B,
-//        //    0x1A32, 0x15EE,
-//        //    0x1BC2, 0x1334,
-//        //    0x16B2, 0x0F2D,
-//        //    0x15EF, 0x1055,
-//        //    0x1A32, 0x15EF,
-//        //    0x11F6, 0x0C5D,
-//        //    0x8000, 0x8000,
-//        //    0x8B60
-//        //)},
-//        //// Chaos Echo
-//        //{ "Chaos Echo", PS1ReverbRegs(
-//        //    0x0000, 0x0000, 0x8100, // base is non-zero here per table
-//        //    0x1FFF, 0x0FFF, 0x1005,
-//        //    0x1005, 0x0005, 0x0000, 0x0000,
-//        //    0x0000,
-//        //    0x1005, 0x0005,
-//        //    0x1005, 0x0005,
-//        //    0x1005, 0x0000,
-//        //    0x0000, 0x0000,
-//        //    0x0000, 0x0000,
-//        //    0x0000, 0x0000,
-//        //    0x1005, 0x0005,
-//        //    0x1004, 0x1002,
-//        //    0x8000, 0x8000,
-//        //    0x3400
-//        //)},
-//        //// Delay
-//        //{ "Delay", PS1ReverbRegs(
-//        //    0x0000, 0x0000, 0x0000,
-//        //    0x1FFF, 0x0FFF, 0x1005,
-//        //    0x1005, 0x0005, 0x0000, 0x0000,
-//        //    0x0000,
-//        //    0x1005, 0x0005,
-//        //    0x1005, 0x0005,
-//        //    0x1005, 0x0000,
-//        //    0x0000, 0x0000,
-//        //    0x0000, 0x0000,
-//        //    0x0000, 0x0000,
-//        //    0x1005, 0x0005,
-//        //    0x1004, 0x1002,
-//        //    0x8000, 0x8000,
-//        //    0x3400
-//        //)},
-//        //// Reverb Off  (IMPORTANT: non-zero size & offsets)
-//        //{ "Reverb Off", PS1ReverbRegs(
-//        //    0x0000, 0x0000, 0x0001,
-//        //    0x0001, 0x0001, 0x0001,
-//        //    0x0001, 0x0001, 0x0001, 0x0001,
-//        //    0x0001,
-//        //    0x0001, 0x0001,
-//        //    0x0001, 0x0001,
-//        //    0x0001, 0x0001,
-//        //    0x0001, 0x0001,
-//        //    0x0001, 0x0001,
-//        //    0x0001, 0x0001,
-//        //    0x0001, 0x0001,
-//        //    0x0001, 0x0001,
-//        //    0x8000, 0x8000,
-//        //    0x0010
-//        //)}
-//};
-//
-//// ===================== Filter =====================
-//
-//PS1ReverbFilter::PS1ReverbFilter(const std::string& presetName)
-//{
-//    auto it = PS1_CANONICAL_PRESETS.find(presetName);
-//    if (it == PS1_CANONICAL_PRESETS.end())
-//        throw std::runtime_error("Unknown PS1 reverb preset: " + presetName);
-//    mRegs = it->second;
-//}
-//
-//SoLoud::FilterInstance* PS1ReverbFilter::createInstance()
-//{
-//    return new PS1ReverbFilterInstance(this);
-//}
-//
-//PS1ReverbFilterInstance::PS1ReverbFilterInstance(PS1ReverbFilter* parent)
-//    : mParent(parent)
-//{
-//    // Allocate work area
-//    mOfs.sizeWords = std::max<uint32_t>(8u, mParent->mRegs.regionSizeBytes / 2u);
-//    mRvb.assign(mOfs.sizeWords, 0);
-//
-//    // Convert address/offset regs to word offsets
-//    mOfs.base = reg_to_words(mParent->mRegs.mBASE);
-//    mOfs.dAPF1 = reg_to_words(mParent->mRegs.dAPF1);
-//    mOfs.dAPF2 = reg_to_words(mParent->mRegs.dAPF2);
-//
-//    mOfs.LSAME = reg_to_words(mParent->mRegs.mLSAME);
-//    mOfs.RSAME = reg_to_words(mParent->mRegs.mRSAME);
-//    mOfs.LCOMB1 = reg_to_words(mParent->mRegs.mLCOMB1);
-//    mOfs.RCOMB1 = reg_to_words(mParent->mRegs.mRCOMB1);
-//    mOfs.LCOMB2 = reg_to_words(mParent->mRegs.mLCOMB2);
-//    mOfs.RCOMB2 = reg_to_words(mParent->mRegs.mRCOMB2);
-//    mOfs.LCOMB3 = reg_to_words(mParent->mRegs.mLCOMB3);
-//    mOfs.RCOMB3 = reg_to_words(mParent->mRegs.mRCOMB3);
-//    mOfs.LCOMB4 = reg_to_words(mParent->mRegs.mLCOMB4);
-//    mOfs.RCOMB4 = reg_to_words(mParent->mRegs.mRCOMB4);
-//    mOfs.LDIFF = reg_to_words(mParent->mRegs.mLDIFF);
-//    mOfs.RDIFF = reg_to_words(mParent->mRegs.mRDIFF);
-//    mOfs.LAPF1 = reg_to_words(mParent->mRegs.mLAPF1);
-//    mOfs.RAPF1 = reg_to_words(mParent->mRegs.mRAPF1);
-//    mOfs.LAPF2 = reg_to_words(mParent->mRegs.mLAPF2);
-//    mOfs.RAPF2 = reg_to_words(mParent->mRegs.mRAPF2);
-//}
-//
-//// Core equations per PSXSPX, done at 16-bit with s15 gains. :contentReference[oaicite:4]{index=4}
-//void PS1ReverbFilterInstance::filter(float* aBuffer, unsigned int aSamples,
-//    unsigned int, unsigned int aChannels, float, SoLoud::time)
-//{
-//    const auto& r = mParent->mRegs;
-//
-//    const int32_t vLIN = (int16_t)r.vLIN;
-//    const int32_t vRIN = (int16_t)r.vRIN;
-//    const int32_t vLOUT = (int16_t)r.vLOUT;
-//    const int32_t vROUT = (int16_t)r.vROUT;
-//
-//    const int32_t vIIR = (int16_t)r.vIIR;
-//    const int32_t vWALL = (int16_t)r.vWALL;
-//    const int32_t vAPF1 = (int16_t)r.vAPF1;
-//    const int32_t vAPF2 = (int16_t)r.vAPF2;
-//    const int32_t vC1 = (int16_t)r.vCOMB1;
-//    const int32_t vC2 = (int16_t)r.vCOMB2;
-//    const int32_t vC3 = (int16_t)r.vCOMB3;
-//    const int32_t vC4 = (int16_t)r.vCOMB4;
-//
-//    const uint32_t d1 = mOfs.dAPF1;
-//    const uint32_t d2 = mOfs.dAPF2;
-//
-//    for (unsigned int i = 0; i < aSamples; ++i)
-//    {
-//        // 1) Read dry input, convert to s16
-//        float inL_f = aBuffer[i * aChannels + 0];
-//        float inR_f = aBuffer[i * aChannels + 1];
-//        int32_t inL = (int32_t)std::lround(clamp_val(inL_f, -1.0f, 1.0f) * 32767.0f);
-//        int32_t inR = (int32_t)std::lround(clamp_val(inR_f, -1.0f, 1.0f) * 32767.0f);
-//
-//        // Helpers for memory
-//        auto R = [&](uint32_t off)->int32_t { return (int16_t)mRvb[addr(off)]; };
-//        auto W = [&](uint32_t off, int32_t v) { mRvb[addr(off)] = clamp16(v); };
-//
-//        // 2) Same-side reflections (IIR)
-//        // [mLSAME] = (Lin + [dLSAME]*vWALL - [mLSAME-2]) * vIIR + [mLSAME-2]
-//        {
-//            int32_t prev = R(mOfs.LSAME + mOfs.sizeWords - 1); // (-2 bytes) == (-1 word)
-//            int32_t term = inL; term = mul_s15(term, vLIN);
-//            int32_t wall = mul_s15(R(mOfs.LSAME + mOfs.LDIFF), vWALL); // [dLSAME] share mLDIFF as offset base in table layouts
-//            int32_t x = mul_s15((term + wall - prev), vIIR) + prev;
-//            W(mOfs.LSAME, x);
-//        }
-//        {
-//            int32_t prev = R(mOfs.RSAME + mOfs.sizeWords - 1);
-//            int32_t term = inR; term = mul_s15(term, vRIN);
-//            int32_t wall = mul_s15(R(mOfs.RSAME + mOfs.RDIFF), vWALL);
-//            int32_t x = mul_s15((term + wall - prev), vIIR) + prev;
-//            W(mOfs.RSAME, x);
-//        }
-//
-//        // 3) Different-side reflections
-//        // [mLDIFF] = Rin * vRIN + [mRDIFF]
-//        // [mRDIFF] = Lin * vLIN + [mLDIFF]
-//        int32_t LDIFFv = mul_s15(inR, vRIN) + R(mOfs.RDIFF);
-//        int32_t RDIFFv = mul_s15(inL, vLIN) + R(mOfs.LDIFF);
-//        W(mOfs.LDIFF, LDIFFv);
-//        W(mOfs.RDIFF, RDIFFv);
-//
-//        // 4) SumHalf
-//        int32_t SumHalfL = R(mOfs.LSAME) + mul_s15(R(mOfs.LDIFF), vRIN);
-//        int32_t SumHalfR = R(mOfs.RSAME) + mul_s15(R(mOfs.RDIFF), vLIN);
-//
-//        // 5) Combine -> write Comb buffers with simple feedback via [-1 word]
-//        W(mOfs.LCOMB1, SumHalfL + mul_s15(R(mOfs.LCOMB3), vC3) + R(mOfs.LCOMB1 + mOfs.sizeWords - 1));
-//        W(mOfs.RCOMB1, SumHalfR + mul_s15(R(mOfs.RCOMB3), vC3) + R(mOfs.RCOMB1 + mOfs.sizeWords - 1));
-//
-//        // 6) Comb -> APF1
-//        W(mOfs.LAPF1, mul_s15(R(mOfs.LCOMB2), vC2) + R(mOfs.LAPF1 + mOfs.sizeWords - 1));
-//        W(mOfs.RAPF1, mul_s15(R(mOfs.RCOMB4), vC4) + R(mOfs.RAPF1 + mOfs.sizeWords - 1));
-//
-//        // 7) APF (write APF2)
-//        W(mOfs.LAPF2,
-//            mul_s15(R(mOfs.LAPF1 + mOfs.sizeWords - d1), vAPF1) +
-//            mul_s15(R(mOfs.LAPF2 + mOfs.sizeWords - d2), vAPF2) +
-//            mul_s15(R(mOfs.LCOMB1), vC1) +
-//            R(mOfs.LAPF2 + mOfs.sizeWords - 1));
-//
-//        W(mOfs.RAPF2,
-//            mul_s15(R(mOfs.RAPF1 + mOfs.sizeWords - d1), vAPF1) +
-//            mul_s15(R(mOfs.RAPF2 + mOfs.sizeWords - d2), vAPF2) +
-//            mul_s15(R(mOfs.RCOMB2), vC2) +
-//            R(mOfs.RAPF2 + mOfs.sizeWords - 1));
-//
-//        // 8) Output
-//        int32_t Lout = mul_s15(R(mOfs.LAPF2 + mOfs.sizeWords - d2), vLOUT) + mul_s15(R(mOfs.RSAME), vRIN);
-//        int32_t Rout = mul_s15(R(mOfs.RAPF2 + mOfs.sizeWords - d2), vROUT) + mul_s15(R(mOfs.LSAME), vLIN);
-//
-//        // Mix wet/dry (convert back to float)
-//        float wetL = (float)clamp_val(Lout, -32768, 32767) / 32768.0f;
-//        float wetR = (float)clamp_val(Rout, -32768, 32767) / 32768.0f;
-//
-//        float dryMix = 1.0f - mParent->mWet;
-//        float wetMix = mParent->mWet;
-//        aBuffer[i * aChannels + 0] = inL_f * dryMix + wetL * wetMix;
-//        aBuffer[i * aChannels + 1] = inR_f * dryMix + wetR * wetMix;
-//
-//        // Advance the SPU "buffer address" by one word (per sample step)
-//        mCur = wrap(mCur + 1);
-//    }
-//}
+// PS1ReverbFilter.cpp
+#include "PS1Reverb.h"
+
+#include <array>
+#include <vector>
+#include <cstring>
+#include <cmath>
+#include <algorithm>
+#include <stdexcept>
+
+// -----------------------------
+// Utility helpers
+static inline float reg_to_gain(uint16_t v)
+{
+    if (v == 0x8000) return -1.0f;
+    // Treat as signed 16-bit
+    int16_t s = static_cast<int16_t>(v);
+    return (float)s / 32768.0f;
+}
+
+static inline size_t addr_to_delay(uint16_t addr)
+{
+    // Map PS1 SPU address-like register to a delay length in samples.
+    // Use lower 12 bits (0..4095) as base length. Avoid 0 by picking a small fallback.
+    // This mapping is deterministic and consistent across presets.
+    unsigned int low12 = addr & 0x0FFFu;
+    if (low12 == 0)
+        low12 = 64; // avoid zero-length combs (small default)
+    // Cap to a sane maximum to avoid huge memory use in POC
+    constexpr unsigned int MAX_DELAY = 32768u;
+    if (low12 > MAX_DELAY) low12 = MAX_DELAY;
+    return static_cast<size_t>(low12);
+}
+
+// -----------------------------
+// Canonical presets (from PSXSPX) as 32-value arrays.
+// Each PS1ReverbRegs constructor in your header expects the 32 values in the header order.
+// We create PS1ReverbRegs via an array-to-struct memcpy constructor (header provided).
+// Keep these entries exactly as PSXSPX lists them.
+const std::unordered_map<std::string, PS1ReverbRegs> PS1_CANONICAL_PRESETS = {
+    { "Room", PS1ReverbRegs(std::array<uint16_t,32>{
+        0x007D,0x005B,0x6D80,0x54B8,0xBED0,0x0000,0x0000,0xBA80,
+        0x5800,0x5300,0x04D6,0x0333,0x03F0,0x0227,0x0374,0x01EF,
+        0x0334,0x01B5,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,
+        0x0000,0x0000,0x01B4,0x0136,0x00B8,0x005C,0x8000,0x8000 }) },
+
+    { "Studio Small", PS1ReverbRegs(std::array<uint16_t,32>{
+        0x0033,0x0025,0x70F0,0x4FA8,0xBCE0,0x4410,0xC0F0,0x9C00,
+        0x5280,0x4EC0,0x03E4,0x031B,0x03A4,0x02AF,0x0372,0x0266,
+        0x031C,0x025D,0x025C,0x018E,0x022F,0x0135,0x01D2,0x00B7,
+        0x018F,0x00B5,0x00B4,0x0080,0x004C,0x0026,0x8000,0x8000 }) },
+
+    { "Studio Medium", PS1ReverbRegs(std::array<uint16_t,32>{
+        0x00B1,0x007F,0x70F0,0x4FA8,0xBCE0,0x4510,0xBEF0,0xB4C0,
+        0x5280,0x4EC0,0x0904,0x076B,0x0824,0x065F,0x07A2,0x0616,
+        0x076C,0x05ED,0x05EC,0x042E,0x050F,0x0305,0x0462,0x02B7,
+        0x042F,0x0265,0x0264,0x01B2,0x0100,0x0080,0x8000,0x8000 }) },
+
+    { "Studio Large", PS1ReverbRegs(std::array<uint16_t,32>{
+        0x00E3,0x00A9,0x6F60,0x4FA8,0xBCE0,0x4510,0xBEF0,0xA680,
+        0x5680,0x52C0,0x0DFB,0x0B58,0x0D09,0x0A3C,0x0BD9,0x0973,
+        0x0B59,0x08DA,0x08D9,0x05E9,0x07EC,0x04B0,0x06EF,0x03D2,
+        0x05EA,0x031D,0x031C,0x0238,0x0154,0x00AA,0x8000,0x8000 }) },
+
+    { "Hall", PS1ReverbRegs(std::array<uint16_t,32>{
+        0x01A5,0x0139,0x6000,0x5000,0x4C00,0xB800,0xBC00,0xC000,
+        0x6000,0x5C00,0x15BA,0x11BB,0x14C2,0x10BD,0x11BC,0x0DC1,
+        0x11C0,0x0DC3,0x0DC0,0x09C1,0x0BC4,0x07C1,0x0A00,0x06CD,
+        0x09C2,0x05C1,0x05C0,0x041A,0x0274,0x013A,0x8000,0x8000 }) },
+
+    { "Half Echo", PS1ReverbRegs(std::array<uint16_t,32>{
+        0x0017,0x0013,0x70F0,0x4FA8,0xBCE0,0x4510,0xBEF0,0x8500,
+        0x5F80,0x54C0,0x0371,0x02AF,0x02E5,0x01DF,0x02B0,0x01D7,
+        0x0358,0x026A,0x01D6,0x011E,0x012D,0x00B1,0x011F,0x0059,
+        0x01A0,0x00E3,0x0058,0x0040,0x0028,0x0014,0x8000,0x8000 }) },
+
+    { "Space Echo", PS1ReverbRegs(std::array<uint16_t,32>{
+        0x033D,0x0231,0x7E00,0x5000,0xB400,0xB000,0x4C00,0xB000,
+        0x6000,0x5400,0x1ED6,0x1A31,0x1D14,0x183B,0x1BC2,0x16B2,
+        0x1A32,0x15EF,0x15EE,0x1055,0x1334,0x0F2D,0x11F6,0x0C5D,
+        0x1056,0x0AE1,0x0AE0,0x07A2,0x0464,0x0232,0x8000,0x8000 }) },
+
+    { "Chaos Echo", PS1ReverbRegs(std::array<uint16_t,32>{
+        0x0001,0x0001,0x7FFF,0x7FFF,0x0000,0x0000,0x0000,0x8100,
+        0x0000,0x0000,0x1FFF,0x0FFF,0x1005,0x0005,0x0000,0x0000,
+        0x1005,0x0005,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,
+        0x0000,0x0000,0x1004,0x1002,0x0004,0x0002,0x8000,0x8000 }) },
+
+    { "Delay", PS1ReverbRegs(std::array<uint16_t,32>{
+        0x0001,0x0001,0x7FFF,0x7FFF,0x0000,0x0000,0x0000,0x0000,
+        0x0000,0x0000,0x1FFF,0x0FFF,0x1005,0x0005,0x0000,0x0000,
+        0x1005,0x0005,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,
+        0x0000,0x0000,0x1004,0x1002,0x0004,0x0002,0x8000,0x8000 }) },
+
+    { "Reverb Off", PS1ReverbRegs(std::array<uint16_t,32>{
+        0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,
+        0x0000,0x0000,0x0001,0x0001,0x0001,0x0001,0x0001,0x0001,
+        0x0000,0x0000,0x0001,0x0001,0x0001,0x0001,0x0001,0x0001,
+        0x0000,0x0000,0x0001,0x0001,0x0001,0x0001,0x0000,0x0000 }) }
+};
+
+// -----------------------------
+// PS1ReverbFilter implementation
+PS1ReverbFilter::PS1ReverbFilter(const std::string& presetName)
+{
+    auto it = PS1_CANONICAL_PRESETS.find(presetName);
+    if (it == PS1_CANONICAL_PRESETS.end()) {
+        // fall back to Hall if unknown
+        mRegs = PS1_CANONICAL_PRESETS.at("Hall");
+    }
+    else {
+        mRegs = it->second;
+    }
+    mWet = 0.5;
+}
+
+// -----------------------------
+// PS1ReverbFilterInstance implementation
+PS1ReverbFilterInstance::PS1ReverbFilterInstance(PS1ReverbFilter* aParent)
+    : mParent(aParent)
+{
+    // lazy init of comb vectors will happen on first filter() call because we need sample-rate
+}
+
+// Initialize per-instance comb buffers based on current preset and samplerate
+void PS1ReverbFilterInstance::initBuffers(float aSamplerate)
+{
+    const PS1ReverbRegs& r = mParent->mRegs;
+
+    // map comb addresses to delays
+    const uint16_t combAddrsL[4] = { r.mLCOMB1, r.mLCOMB2, r.mLCOMB3, r.mLCOMB4 };
+    const uint16_t combAddrsR[4] = { r.mRCOMB1, r.mRCOMB2, r.mRCOMB3, r.mRCOMB4 };
+
+    for (int c = 0; c < 4; ++c)
+    {
+        size_t lenL = addr_to_delay(combAddrsL[c]);
+        size_t lenR = addr_to_delay(combAddrsR[c]);
+
+        // allocate with +1 for safe modulo operations
+        mLComb[c].assign(lenL + 1, 0.0f);
+        mRComb[c].assign(lenR + 1, 0.0f);
+
+        mLIndex[c] = 0;
+        mRIndex[c] = 0;
+    }
+
+    // reset APF states
+    mLAPF1State = mLAPF2State = mRAPF1State = mRAPF2State = 0.0f;
+}
+
+// The *exact* SoLoud signature the engine expects
+void PS1ReverbFilterInstance::filter(float* aBuffer, unsigned int aSamples,
+    unsigned int /*aBufferSize*/, unsigned int aChannels, float aSamplerate, SoLoud::time /*aTime*/)
+{
+    if (!aBuffer || aSamples == 0 || aChannels == 0) return;
+
+    // Lazy init on first filter call (we need samplerate to compute lengths if we wanted sample-rate scaling)
+    if (mLComb[0].empty())
+        initBuffers(aSamplerate);
+
+    const PS1ReverbRegs& r = mParent->mRegs;
+
+    // Gains
+    const float combGains[4] = {
+        reg_to_gain(r.vCOMB1),
+        reg_to_gain(r.vCOMB2),
+        reg_to_gain(r.vCOMB3),
+        reg_to_gain(r.vCOMB4)
+    };
+    const float apfGain1 = reg_to_gain(r.vAPF1);
+    const float apfGain2 = reg_to_gain(r.vAPF2);
+    const float wallGain = reg_to_gain(r.vWALL);
+    const float outGainL = reg_to_gain(r.vLOUT);
+    const float outGainR = reg_to_gain(r.vROUT);
+
+    // Main sample loop
+    for (unsigned int i = 0; i < aSamples; ++i)
+    {
+        const unsigned int baseIndex = i * aChannels;
+        float inL = aBuffer[baseIndex + 0];
+        float inR = (aChannels > 1) ? aBuffer[baseIndex + 1] : inL;
+
+        // Comb stage
+        float combOutL = 0.0f;
+        float combOutR = 0.0f;
+
+        for (int c = 0; c < 4; ++c)
+        {
+            // Left comb
+            auto& bufL = mLComb[c];
+            size_t idxL = mLIndex[c] % bufL.size();
+            float delayedL = bufL[idxL];
+            // write new sample: input + previous delayed * feedback
+            float newL = inL + delayedL * combGains[c];
+            bufL[idxL] = newL;
+            combOutL += delayedL;
+            mLIndex[c] = (idxL + 1) % bufL.size();
+
+            // Right comb
+            auto& bufR = mRComb[c];
+            size_t idxR = mRIndex[c] % bufR.size();
+            float delayedR = bufR[idxR];
+            float newR = inR + delayedR * combGains[c];
+            bufR[idxR] = newR;
+            combOutR += delayedR;
+            mRIndex[c] = (idxR + 1) % bufR.size();
+        }
+
+        // Wall/reflection scaling
+        combOutL *= wallGain;
+        combOutR *= wallGain;
+
+        // APF stages (two scalar APFs per channel implemented via simple state form)
+        // L channel
+        float apf1_out_L = apfGain1 * combOutL + mLAPF1State;
+        mLAPF1State = combOutL - apfGain1 * apf1_out_L;
+        float apf2_out_L = apfGain2 * apf1_out_L + mLAPF2State;
+        mLAPF2State = apf1_out_L - apfGain2 * apf2_out_L;
+
+        // R channel
+        float apf1_out_R = apfGain1 * combOutR + mRAPF1State;
+        mRAPF1State = combOutR - apfGain1 * apf1_out_R;
+        float apf2_out_R = apfGain2 * apf1_out_R + mRAPF2State;
+        mRAPF2State = apf1_out_R - apfGain2 * apf2_out_R;
+
+        // Mix wet/dry and apply output volumes
+        float wet = mParent->mWet;
+        float dry = 1.0f - wet;
+
+        float outL = dry * inL + wet * apf2_out_L * outGainL;
+        float outR = dry * inR + wet * apf2_out_R * outGainR;
+
+        // clamp for SoLoud pipeline safety
+        outL = std::clamp(outL, -1.0f, 1.0f);
+        outR = std::clamp(outR, -1.0f, 1.0f);
+
+        aBuffer[baseIndex + 0] = outL;
+        if (aChannels > 1)
+            aBuffer[baseIndex + 1] = outR;
+    }
+}

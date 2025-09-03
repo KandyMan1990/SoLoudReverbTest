@@ -4,9 +4,9 @@
 #include <string>
 #include "soloud.h"
 #include "soloud_wav.h"
-//#include "soloud_freeverbfilter.h"
-//#include "PS1Reverb.h"
-#include "PS1ReverbFilter.hpp"
+#include "soloud_freeverbfilter.h"
+#include "PS1Reverb.h"
+//#include "PS1ReverbFilter.hpp"
 
 using namespace std;
 
@@ -20,16 +20,16 @@ int main()
     //SoLoud::FreeverbFilter filter;
     //filter.setParams(0.0f, 0.8f, 0.5f, 1.0f);
 
-    PS1ReverbFilter *roomReverb = new PS1ReverbFilter("Room");
-    //PS1ReverbFilter* studioSmallReverb = new PS1ReverbFilter("Studio Small");
-    //PS1ReverbFilter* studioMediumReverb = new PS1ReverbFilter("Studio Medium");
-    //PS1ReverbFilter* studioLargeReverb = new PS1ReverbFilter("Studio Large");
-    //PS1ReverbFilter* hallReverb = new PS1ReverbFilter("Hall");
-    //PS1ReverbFilter* halfEchoReverb = new PS1ReverbFilter("Half Echo");
-    //PS1ReverbFilter* spaceEchoReverb = new PS1ReverbFilter("Space Echo");
-    //PS1ReverbFilter* chaosEchoReverb = new PS1ReverbFilter("Chaos Echo");
-    //PS1ReverbFilter* delayReverb = new PS1ReverbFilter("Delay");
-    //PS1ReverbFilter* offReverb = new PS1ReverbFilter("Reverb Off");
+    //PS1ReverbFilter *filter = new PS1ReverbFilter("Room");
+    //PS1ReverbFilter *filter = new PS1ReverbFilter("Studio Small");
+    PS1ReverbFilter *filter = new PS1ReverbFilter("Studio Medium");
+    //PS1ReverbFilter *filter = new PS1ReverbFilter("Studio Large");
+    //PS1ReverbFilter *filter = new PS1ReverbFilter("Hall");
+    //PS1ReverbFilter *filter = new PS1ReverbFilter("Half Echo");
+    //PS1ReverbFilter *filter = new PS1ReverbFilter("Space Echo");
+    //PS1ReverbFilter *filter = new PS1ReverbFilter("Chaos Echo");
+    //PS1ReverbFilter *filter = new PS1ReverbFilter("Delay");
+    //PS1ReverbFilter *filter = new PS1ReverbFilter("Reverb Off");
 
     SoLoud::Bus mainBus;
     SoLoud::Bus reverbBus;
@@ -37,7 +37,7 @@ int main()
     soloud.play(mainBus);
     mainBus.play(reverbBus);
 
-    reverbBus.setFilter(0, roomReverb);
+    reverbBus.setFilter(0, filter);
 
     std::string prefix = "sfx/";
     std::string suffix = ".wav";
