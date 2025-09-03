@@ -102,7 +102,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;WITH_WINMM;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Users\ellio\Desktop\SoLoudTest\SoLoudTest\soloud-master\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\ellio\source\repos\SoLoudReverbTest\SoLoudTest\soloud-master\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -149,10 +149,23 @@
     <ClCompile Include="soloud-master\src\core\soloud_misc.cpp" />
     <ClCompile Include="soloud-master\src\core\soloud_queue.cpp" />
     <ClCompile Include="soloud-master\src\core\soloud_thread.cpp" />
+    <ClCompile Include="soloud-master\src\filter\soloud_bassboostfilter.cpp" />
+    <ClCompile Include="soloud-master\src\filter\soloud_biquadresonantfilter.cpp" />
+    <ClCompile Include="soloud-master\src\filter\soloud_dcremovalfilter.cpp" />
+    <ClCompile Include="soloud-master\src\filter\soloud_duckfilter.cpp" />
+    <ClCompile Include="soloud-master\src\filter\soloud_echofilter.cpp" />
+    <ClCompile Include="soloud-master\src\filter\soloud_eqfilter.cpp" />
+    <ClCompile Include="soloud-master\src\filter\soloud_fftfilter.cpp" />
+    <ClCompile Include="soloud-master\src\filter\soloud_flangerfilter.cpp" />
+    <ClCompile Include="soloud-master\src\filter\soloud_freeverbfilter.cpp" />
+    <ClCompile Include="soloud-master\src\filter\soloud_lofifilter.cpp" />
+    <ClCompile Include="soloud-master\src\filter\soloud_robotizefilter.cpp" />
+    <ClCompile Include="soloud-master\src\filter\soloud_waveshaperfilter.cpp" />
     <ClCompile Include="SoLoudTest.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="PS1Reverb.h" />
+    <ClInclude Include="PS1ReverbFilter.hpp" />
     <ClInclude Include="soloud-master\src\audiosource\wav\dr_flac.h" />
     <ClInclude Include="soloud-master\src\audiosource\wav\dr_mp3.h" />
     <ClInclude Include="soloud-master\src\audiosource\wav\dr_wav.h" />

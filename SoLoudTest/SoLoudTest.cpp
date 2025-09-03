@@ -4,16 +4,23 @@
 #include <string>
 #include "soloud.h"
 #include "soloud_wav.h"
-#include "PS1Reverb.h"
+//#include "soloud_freeverbfilter.h"
+//#include "PS1Reverb.h"
+#include "PS1ReverbFilter.hpp"
 
 using namespace std;
+
+
 
 int main()
 {
     SoLoud::Soloud soloud;
     soloud.init();
 
-    PS1ReverbFilter* roomReverb = new PS1ReverbFilter("Studio Medium");
+    //SoLoud::FreeverbFilter filter;
+    //filter.setParams(0.0f, 0.8f, 0.5f, 1.0f);
+
+    PS1ReverbFilter *roomReverb = new PS1ReverbFilter("Room");
     //PS1ReverbFilter* studioSmallReverb = new PS1ReverbFilter("Studio Small");
     //PS1ReverbFilter* studioMediumReverb = new PS1ReverbFilter("Studio Medium");
     //PS1ReverbFilter* studioLargeReverb = new PS1ReverbFilter("Studio Large");
@@ -24,23 +31,32 @@ int main()
     //PS1ReverbFilter* delayReverb = new PS1ReverbFilter("Delay");
     //PS1ReverbFilter* offReverb = new PS1ReverbFilter("Reverb Off");
 
-    SoLoud::Wav myWav;
+    SoLoud::Bus mainBus;
+    SoLoud::Bus reverbBus;
+
+    soloud.play(mainBus);
+    mainBus.play(reverbBus);
+
+    reverbBus.setFilter(0, roomReverb);
+
     std::string prefix = "sfx/";
     std::string suffix = ".wav";
 
     for (int i = 0; i < 1544; i++) {
         cout << "Playing sound " << i << endl;
 
-        std::string index = std::to_string(i);
-        std::string filename = prefix + index + suffix;
+        std::string filename = prefix + std::to_string(i) + suffix;
 
-        myWav.load(filename.c_str());
-        myWav.setFilter(0, roomReverb);
-        soloud.play(myWav);
+        SoLoud::Wav sound;
+        sound.load(filename.c_str());
+        float lengthInSeconds = sound.getLength() + 2;
 
-        float lengthInSeconds = myWav.getLength() + 1;
-    
-        std::this_thread::sleep_for(std::chrono::duration<float>(lengthInSeconds));
+        mainBus.play(sound);
+        mainBus.play(reverbBus);
+        reverbBus.play(sound);
+
+        // wait full length so next clip doesn't overlap
+        this_thread::sleep_for(chrono::duration<float>(lengthInSeconds));
     }
 
     soloud.deinit();
