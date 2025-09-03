@@ -1,92 +1,58 @@
 #pragma once
-
 #include <cstdint>
 #include <string>
-#include <unordered_map>
+#include <map>
 #include <array>
-#include <vector>
-#include <soloud.h>
-#include <soloud_filter.h>
 
-// PS1 Reverb registers struct (32 values)
-struct PS1ReverbRegs {
-    uint16_t vLOUT, vROUT;                     // Reverb Output Volume L/R
-    uint16_t dAPF1, dAPF2;                     // APF offsets (addresses in SPU, used as delay sizes here)
-    uint16_t vIIR;                             // Reflection / extra volume
-    uint16_t vCOMB1, vCOMB2, vCOMB3, vCOMB4;   // Comb volumes (feedback)
-    uint16_t vWALL;                            // Wall/reflection volume
-    uint16_t vAPF1, vAPF2;                     // APF volumes (gains)
-    uint16_t mLSAME, mRSAME;                   // same-side reflection addresses
-    uint16_t mLCOMB1, mRCOMB1;                 // comb addresses 1
-    uint16_t mLCOMB2, mRCOMB2;                 // comb addresses 2
-    uint16_t dLSAME, dRSAME;                   // same-side reflection addresses 2
-    uint16_t mLDIFF, mRDIFF;                   // different-side reflect addresses 1
-    uint16_t mLCOMB3, mRCOMB3;                 // comb addresses 3
-    uint16_t mLCOMB4, mRCOMB4;                 // comb addresses 4
-    uint16_t dLDIFF, dRDIFF;                   // different-side reflect addresses 2
-    uint16_t mLAPF1, mRAPF1;                   // APF addresses 1
-    uint16_t mLAPF2, mRAPF2;                   // APF addresses 2
-
-    PS1ReverbRegs() = default;
-
-    // Construct from array-of-32 (keeps ordering explicit)
-    PS1ReverbRegs(const std::array<uint16_t, 32>& a) {
-        // copy 32*2 bytes directly into the struct layout
-        std::memcpy(this, a.data(), sizeof(uint16_t) * 32);
-    }
-};
-
-// The canonical preset map is defined in the cpp
-extern const std::unordered_map<std::string, PS1ReverbRegs> PS1_CANONICAL_PRESETS;
-
-
-// Forward declarations
-class PS1ReverbFilter;
-
-// Per-instance filter (SoLoud requires a FilterInstance for per-playback state)
-class PS1ReverbFilterInstance : public SoLoud::FilterInstance
+class PS1Reverb
 {
 public:
-    explicit PS1ReverbFilterInstance(PS1ReverbFilter* aParent);
-    ~PS1ReverbFilterInstance() override = default;
+    PS1Reverb();
+    ~PS1Reverb() = default;
 
-    // SoLoud's FilterInstance filter() signature
-    void filter(float* aBuffer, unsigned int aSamples, unsigned int aBufferSize,
-        unsigned int aChannels, float aSamplerate, SoLoud::time aTime) override;
+    void Init();
+
+    // Reset all reverb state
+    void Power();
+
+    // Run the reverb for a stereo pair (input/output are 32-bit accumulators)
+    void RunReverb(const int32_t in[2], int32_t out[2]);
+
+    // Set a preset by name
+    bool SetPreset(const std::string& name);
+
+    // Optional: read/write the SPU RAM if needed
+    void WriteSPURAM(uint32_t addr, uint16_t value);
+    uint16_t ReadSPURAM(uint32_t addr) const;
 
 private:
-    PS1ReverbFilter* mParent;
+    // Core reverb buffers
+    std::array<int16_t, 0x40000> SPURAM{};      // 256 KB SPU RAM
+    std::array<int16_t, 0x40> RUSB[2]{};        // Reverb upsampling buffer
+    std::array<int16_t, 0x40> RDSB[2]{};        // Reverb downsampling buffer
 
-    // Comb buffers — 4 per channel
-    std::array<std::vector<float>, 4> mLComb;
-    std::array<std::vector<float>, 4> mRComb;
+    // Reverb state
+    uint32_t ReverbCur;
+    uint32_t ReverbWA;
+    uint32_t RvbResPos;
 
-    // circular indices
-    std::array<size_t, 4> mLIndex{};
-    std::array<size_t, 4> mRIndex{};
+    // Internal functions
+    uint32_t Get_Reverb_Offset(uint32_t in_offset) const;
+    int16_t RD_RVB(uint16_t raw_offs, int32_t extra_offs) const;
+    void WR_RVB(uint16_t raw_offs, int16_t sample);
 
-    // simple two-stage scalar APF state per channel (keeps implementation compact & robust)
-    float mLAPF1State = 0.0f;
-    float mLAPF2State = 0.0f;
-    float mRAPF1State = 0.0f;
-    float mRAPF2State = 0.0f;
+    static int16_t ReverbSat(int32_t samp);
+    static int32_t Reverb2244(const int16_t* src);
+    static int32_t Reverb4422(const int16_t* src);
+    static int32_t IIASM(int16_t IIR_ALPHA, int16_t insamp);
 
-    // Helper to (re)initialise buffers when sample rate or preset changes
-    void initBuffers(float aSamplerate);
-};
+    // Preset storage
+    struct Preset
+    {
+        std::array<uint16_t, 32> values;
+    };
+    std::map<std::string, Preset> Presets;
 
-
-// Filter object (shared preset data here; createInstance will produce instances)
-class PS1ReverbFilter : public SoLoud::Filter
-{
-public:
-    explicit PS1ReverbFilter(const std::string& presetName = "Hall");
-    ~PS1ReverbFilter() override = default;
-
-    // SoLoud expects this to be implemented
-    SoLoud::FilterInstance* createInstance() override { return new PS1ReverbFilterInstance(this); }
-
-    // Parameters (exposed)
-    float mWet = 1;       // default wet/dry mix
-    PS1ReverbRegs mRegs;     // current preset registers (copied from PS1_CANONICAL_PRESETS)
+    // Load all official presets
+    void InitPresets();
 };
