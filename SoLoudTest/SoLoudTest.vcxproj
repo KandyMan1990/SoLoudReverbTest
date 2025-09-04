@@ -131,6 +131,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="PSXReverbFilter.cpp" />
     <ClCompile Include="soloud-master\src\audiosource\wav\dr_impl.cpp" />
     <ClCompile Include="soloud-master\src\audiosource\wav\soloud_wav.cpp" />
     <ClCompile Include="soloud-master\src\audiosource\wav\soloud_wavstream.cpp" />
@@ -171,6 +172,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="PSXReverb.hpp" />
+    <ClInclude Include="PSXReverbFilter.h" />
     <ClInclude Include="soloud-master\src\audiosource\wav\dr_flac.h" />
     <ClInclude Include="soloud-master\src\audiosource\wav\dr_mp3.h" />
     <ClInclude Include="soloud-master\src\audiosource\wav\dr_wav.h" />

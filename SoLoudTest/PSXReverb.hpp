@@ -174,14 +174,14 @@ static float fc2alpha(float fc, float samplerate)
 }
 
 /**
-   The `connect_port()` method is called by the host to connect a particular
+   The `setPort()` method is called by the host to connect a particular
    port to a buffer.  The plugin must store the data location, but data may not
    be accessed except in run().
 
    This method is in the ``audio'' threading class, and is called in the same
    context as run().
 */
-static void connect_port(PsxReverb* instance, PortIndex port, void* data)
+static void setPort(PsxReverb* instance, PortIndex port, void* data)
 {
     PsxReverb* psx_rev = instance;
  
