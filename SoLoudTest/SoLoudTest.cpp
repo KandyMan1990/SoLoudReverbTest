@@ -5,7 +5,7 @@
 #include "soloud.h"
 #include "soloud_wav.h"
 #include "soloud_freeverbfilter.h"
-#include "PS1ReverbFilter.hpp"
+#include "PSXReverb.hpp"
 
 using namespace std;
 
@@ -14,14 +14,14 @@ int main()
     SoLoud::Soloud soloud;
     soloud.init();
 
-    //SoLoud::FreeverbFilter filter;
-    //filter.setParams(0.0f, 0.8f, 0.5f, 1.0f);
+    SoLoud::FreeverbFilter filter;
+    filter.setParams(0.0f, 0.8f, 0.5f, 1.0f);
 
-    PS1ReverbFilter filter;
+    //PS1ReverbFilter filter;
     //filter.setPreset("Room");
     //filter.setPreset("Studio Small");
     //filter.setPreset("Studio Medium");
-    filter.setPreset("Studio Large");
+    //filter.setPreset("Studio Large");
     //filter.setPreset("Hall");
     //filter.setPreset("Half Echo");
     //filter.setPreset("Space Echo");

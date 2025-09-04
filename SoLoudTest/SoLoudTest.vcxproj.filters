@@ -90,9 +90,6 @@
     <ClCompile Include="soloud-master\src\core\soloud_queue.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="PS1Reverb.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="soloud-master\src\filter\soloud_bassboostfilter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -143,10 +140,7 @@
     <ClInclude Include="soloud-master\src\audiosource\wav\stb_vorbis.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="PS1Reverb.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="PS1ReverbFilter.hpp">
+    <ClInclude Include="PSXReverb.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
