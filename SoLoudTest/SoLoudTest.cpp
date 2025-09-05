@@ -19,11 +19,9 @@ int main()
 
     PSXReverbFilter filter;
 
-    SoLoud::Bus mainBus;
     SoLoud::Bus reverbBus;
 
-    soloud.play(mainBus);
-    mainBus.play(reverbBus);
+    soloud.play(reverbBus);
 
     reverbBus.setFilter(0, &filter);
 
@@ -39,7 +37,6 @@ int main()
         sound.load(filename.c_str());
         float lengthInSeconds = sound.getLength() + 2;
 
-        mainBus.play(sound);
         reverbBus.play(sound);
 
         // wait full length so next clip doesn't overlap
